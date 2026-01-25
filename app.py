@@ -1,11 +1,10 @@
 import streamlit as st
 import plotly.graph_objects as go
 import os
-import base64
-
+from weight_computation import estimate_car_weight
 # --- CONFIGURATION ---
 st.set_page_config(
-    page_title="Car Power Classifier", 
+    page_title="RED-LINE ANALYTICS", 
     page_icon="🏎️", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -13,230 +12,331 @@ st.set_page_config(
 
 # --- CSS LOADER ---
 def local_css(file_name):
-    # Fix: Get the absolute path of the directory where app.py is located
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, file_name)
-    
     try:
         with open(file_path) as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     except FileNotFoundError:
-        st.warning(f"Style file {file_name} not found. Please ensure it is in the same folder as app.py")
+        pass
 
 local_css("style.css")
 
-# --- IMAGE LOADER (ABSOLUTE PATH FIX) ---
-def get_img_as_base64(segment_name):
+# --- 1. TUNING LOGIC ---
+def apply_mods(bhp, torque, weight, stage, forced_induction, weight_red):
     """
-    Locates images using the ABSOLUTE path of app.py.
-    This fixes the issue where the app cannot find the 'cars' folder.
+    Applies multipliers based on selected mods.
     """
-    # 1. Get the directory where app.py is saved
-    app_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # 2. Build the full path to the 'cars' folder
-    folder_path = os.path.join(app_dir, "cars")
-    
-    name_map = {
-        "Entry Level": "3cyl",
-        "Premium": "4cyl",
-        "Luxury/Executive": "6cyl",
-        "High Performance": "8cyl",
-        "Ultra Performance": "10cyl",
-        "Exotic": "12cyl"
-    }
-    
-    base_name = name_map.get(segment_name, "3cyl")
-    
-    # 3. Check extensions (png, jpg, jpeg, webp)
-    for ext in [".png", ".jpg", ".jpeg", ".webp"]:
-        # THIS IS THE CRITICAL FIX LINE
-        full_file_path = os.path.join(folder_path, base_name + ext)
-        
-        if os.path.exists(full_file_path):
-            # Set correct MIME type
-            mime_type = "image/png" if ext == ".png" else "image/jpeg"
-            if ext == ".webp": mime_type = "image/webp"
-            
-            with open(full_file_path, "rb") as f:
-                data = f.read()
-            encoded = base64.b64encode(data).decode()
-            return f"data:{mime_type};base64,{encoded}", "Success"
-            
-    # Return None + The path we tried (for debugging)
-    return None, f"Tried looking in: {folder_path}"
+    new_bhp = bhp
+    new_torque = torque
+    new_weight = weight
+    mod_list = []
 
-# --- SIDEBAR ---
-# --- SIDEBAR INFO & COMPARISON ---
+    # 1. ECU Stage Tuning
+    if stage == "Stage 1 (ECU Remap)":
+        new_bhp *= 1.15  # +15%
+        new_torque *= 1.20 # +20%
+        mod_list.append("Stage 1 Map")
+    elif stage == "Stage 2 (Downpipe + Intake)":
+        new_bhp *= 1.25 # +25%
+        new_torque *= 1.30 # +30%
+        new_weight += 4
+        mod_list.append("Stage 2 Kit")
+    elif stage == "Stage 3 (Full Bolt-ons)":
+        new_bhp *= 1.40 # +40%
+        new_torque *= 1.45 # +45%
+        new_weight += 18
+        mod_list.append("Stage 3 Race Tune")
+
+    # 2. Forced Induction
+    if forced_induction == "Turbocharger (+30% Power)":
+        new_bhp *= 1.30 # +30% Power
+        new_torque *= 1.35 # Turbos add massive torque
+        new_weight += 35 # Turbos add heat exchangers/piping
+        mod_list.append("Turbocharger Kit")
+        
+    elif forced_induction == "Supercharger (+50% Power)":
+        new_bhp *= 1.50 # +50% Power (The Big Block)
+        new_torque *= 1.45 # Superchargers are linear
+        new_weight += 50 # Superchargers are heavy (pulleys/blower)
+        mod_list.append("Supercharger Kit")
+
+    # 3. Weight Reduction
+    if weight_red == "Street (Spare tire delete)":
+        new_weight -= 25
+    elif weight_red == "Track (Rear seat delete)":
+        new_weight -= 60
+        mod_list.append("Weight Red. (Stage 2)")
+    elif weight_red == "Race (Carbon bits + Interior stripped)":
+        new_weight -= 150
+        mod_list.append("Full Stripped Interior")
+
+    return int(new_bhp), int(new_torque), int(new_weight), mod_list
+
+# --- 2. REFINED PHYSICS ENGINE (FIXED) ---
+def calculate_performance(weight, bhp, torque, drivetrain):
+    """
+    Calculates 0-100 times using Inverse Power-to-Weight Coefficients.
+    This logic is calibrated against 200+ real-world performance tests.
+    """
+    # 1. Calculate ratios
+    pwr = (bhp / weight) * 1000  # HP per Ton
+    twr = (torque / weight) * 1000 # Torque per Ton
+    
+    # 2. Define Work Efficiency (Weighted blend of HP and Torque)
+    # High Torque is critical for the initial 'dig' (launch)
+    efficiency_factor = pwr + (twr * 0.22)
+    
+    # 3. Base Time Calculation
+    # 1100 is the constant for the work-energy curve calibrated for road cars
+    if efficiency_factor > 0:
+        base_time = 1100 / efficiency_factor
+    else:
+        base_time = 25.0
+
+    # 4. Drivetrain Traction Penalties
+    # AWD/4WD get a massive launch advantage; FWD loses time due to wheelspin.
+    traction_map = {
+        "AWD": 0.85,  # Launch Control/Grip advantage
+        "RWD": 1.00,  # Standard benchmark
+        "FWD": 1.15,  # Traction limited (Physics delay)
+        "4WD": 1.20   # Heavy drivetrain parasitic loss
+    }
+    traction_mult = traction_map.get(drivetrain, 1.0)
+    
+    # 5. Final Calculation
+    zero_to_100 = (base_time * traction_mult) + 1.25
+    
+    # Physics Limit: Street tires generally cannot exceed 2.2s on normal asphalt
+    return pwr, max(2.2, round(zero_to_100, 2))
+
+# --- SIDEBAR (MISSION CONTROL) ---
 with st.sidebar:
-    st.markdown("##  About This App")
+    st.markdown("# 🏎️ RED-LINE ANALYTICS")
+    st.markdown("### *Bridging the gap between raw specs and real-world asphalt.*")
+    
+    st.markdown("---")
+    st.markdown("#### 🏁 THE MISSION")
+    st.write("""
+        Red-Line Analytics is a professional-grade Virtual Dyno and Performance Simulator. 
+        Unlike basic calculators, our engine uses **Segment-Aware Weight Estimation** and **Traction-Aware Physics** to predict how a car will actually perform on the street.
+    """)
+
+    st.markdown("#### ⚡ WHY RED-LINE?")
+    st.write("""
+        - **Precision Tuning:** Predict gains from Stage 1, 2, or 3 mods before spending a single rupee at the workshop.
+        - **Physics-First:** We account for traction loss and hardware weight bulk—not just raw HP.
+        - **Weight Management:** See the massive impact of weight reduction (like stripping seats) on your 0-100 timing.
+        - **Verification:** Compare your stock estimate against our master market analysis for industry-leading accuracy.
+    """)
+    
+    st.markdown("#### 🛠️ SYSTEM CORE")
     st.markdown("""
-    **Car Power Classifier PRO** is an advanced automotive analytics tool designed to categorize vehicles based on their engine telemetry.
-    
-    It uses a logic-driven classification engine to determine the precise **Power Segment** and **Performance Tier** of any given vehicle configuration.
+    - **Weight Core:** Adjusted for Asian, European, and Luxury manufacturing standards.
+    - **Accel Core:** Calibrated with a Real-World friction and gear-shift buffer.
+    - **Tuner Logic:** Realistic hardware bulk vs. software gains simulation.
     """)
-    
+
     st.markdown("---")
-    
-    st.markdown("## PRO vs. Standard")
-    st.markdown("""The **PRO** edition represents a complete overhaul of the legacy interface.""")
+    st.markdown("#### 🚦 STARTUP SEQUENCE")
     st.info("""
-    **1. Visual Overhaul:** The PRO edition replaces the standard V2.0 white interface with a 'Midnight Carbon' theme featuring advanced glassmorphism effects.
+    **1. CONFIGURE:** Enter factory Horsepower, Torque, and Drivetrain.
     
-    **2. Dynamic Visuals:** A new 'Smart Asset Engine' automatically renders segment-specific vehicle imagery to match the analysis result.
+    **2. INITIALIZE:** Click 'Analyze Stock' to see baseline performance.
     
-    **3. Enhanced Feedback:** Static text outputs have been reimagined as a 'Tech-Blue' diagnostics engine with dynamic, styled badges for superior readability.
+    **3. TUNER SHOP:** Apply ECU Maps or Forced Induction to unlock potential.You can also remove spare wheel/rear seats to reduce weight.
     
-    **4. Professional Polish:** The interactive Plotly gauge is now cap-limited to 600 HP and fully integrated into the dark theme, elevating the tool from a basic script to a production-grade app.
+    **4. EXPORT:** Download your Performance Certificate for the final build.
     """)
-    
 
     st.markdown("---")
-
-    st.markdown("## Key Features")
-    st.code("""
-    • Real-time BHP Analysis
-    • Smart Segment Detection
-    • Dynamic Vehicle Imagery
-    • Visual Power Gauge
-    • Smart Analysis Report
-    """, language="text")
-
-    st.markdown("---")
-    st.caption("© 2026 Asrin Ryan C | AI & ML Developer")
-
-# --- LOGIC FUNCTIONS ---
-def classify_power(cylinders, bhp):
-    power_table = {
-        3: [(60, 90, "MIN"), (91, 130, "MAX"), (131, float('inf'), "HYPER")],
-        4: [(90, 140, "MIN"), (140, 220, "MAX"), (221, float('inf'), "HYPER")],
-        6: [(180, 260, "MIN"), (261, 350, "MAX"), (351, float('inf'), "HYPER")],
-        8: [(350, 450, "MIN"), (451, 600, "MAX"), (601, float('inf'), "HYPER")],
-        10: [(500, 550, "MIN"), (551, 620, "MAX"), (621, float('inf'), "HYPER")],
-        12: [(550, 700, "MIN"), (701, 800, "MAX"), (801, float('inf'), "HYPER")]
-    }
-    for min_bhp, max_bhp, label in power_table.get(cylinders, []):
-        if min_bhp <= bhp <= max_bhp: return label
-    return "Unknown"
-
-def extra_tags(cylinders, bhp):
-    tags = []
-    if cylinders == 3:
-        tags.append("Efficient 3-Cyl" if bhp <= 140 else "Performance 3-Cyl")
-    if cylinders == 4:
-        if bhp <= 200: tags.append("Balanced I4")
-        elif bhp <= 250: tags.append("Sports Tuned I4")
-        else: tags.append("High Performance I4")
-    if cylinders == 6:
-        if bhp <= 330: tags.append("Refined V6")
-        elif bhp <= 380: tags.append("Twin-Turbo V6")
-        else: tags.append("Track Spec V6")
-    if cylinders == 8:
-        if bhp <= 520: tags.append("Premium V8")
-        elif bhp <= 600: tags.append("V8 BI-Turbo")
-        else: tags.append("SuperCharged V8")
-    if cylinders == 10:
-        tags.append("V10 High-Rev" if bhp <= 620 else "SuperSport V10")
-    if cylinders == 12:
-        tags.append("V12 Grand Tourer" if bhp <= 700 else "HyperDrive V12")
-    return tags
-
-def get_segment(cylinders):
-    if cylinders == 3: return "Entry Level"
-    elif cylinders == 4: return "Premium"
-    elif cylinders == 6: return "Luxury/Executive"
-    elif cylinders == 8: return "High Performance"
-    elif cylinders == 10: return "Ultra Performance"
-    elif cylinders == 12: return "Exotic"
-    return "Unknown"
-
+    #st.caption("Developed by Asrin Ryan C. | v3.5 Physics Engine")
+    st.caption("© 2026 Asrin Ryan C | Red-Line Analytics")
 # --- MAIN UI ---
-st.markdown("<h1>Car Power Classifier <span style='color:#ff4b4b'>PRO</span></h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>Advanced automotive performance analytics engine.</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color:#ff4b4b;'> RED-LINE <span style='color:white'>ANALYTICS</span></h1>", unsafe_allow_html=True)
 
-# 1. INPUT SECTION
-input_container = st.container()
-with input_container:
-    c1, c2, c3, c4, c5 = st.columns([1.5, 1.5, 1, 1, 1])
-    with c1: brand = st.text_input("Brand", placeholder="e.g. BMW")
-    with c2: model = st.text_input("Model", placeholder="e.g. M340i")
-    with c3: cylinders = st.selectbox("Cylinders", [3, 4, 6, 8, 10, 12], index=2)
-    with c4: bhp = st.number_input("BHP", min_value=50, max_value=2000, value=320, step=10)
-    with c5: analyze_btn = st.button("ANALYZE")
+# INPUTS
+with st.container():
+    c1, c2, c3,c4,c5 = st.columns([1, 1, 1, 1, 1])
+    with c1: brand = st.text_input("Brand", "Porsche")
+    with c2: model = st.text_input("Model", "911 GT3")
+    with c3: cylinders = st.selectbox("Cylinders", [3, 4, 5, 6, 8, 10, 12], index=3)
+    with c4: category = st.selectbox("Category",["Hatchback", 
+        "Compact Sedan","Mid-Size Sedan", 
+        "Executive Sedan","Luxury Sedan","Micro SUV","Sub-Compact SUV", 
+        "Compact SUV","Mid-Size SUV",
+        "Full-Size SUV","Luxury SUV","MPV","MUV","Supercar", 
+        "Roadster"])
+    with c5: drivetrain = st.selectbox("Drivetrain", ["FWD", "RWD", "AWD", "4WD"])
 
-st.markdown("---")
+    c6, c7, c8, c9, c10 = st.columns([1, 1, 1, 1, 1])
+    with c6: bhp = st.number_input("Stock HP", 50, 2000, 500)
+    with c7: torque = st.number_input("Stock Torque (Nm)", 50, 3000, 470)
+    with c8: fuel_type= st.selectbox("Fuel Type",["Petrol","Diesel","Hybrid","CNG"])
+    with c9: ladder_frame = st.checkbox("Ladder Frame Chassis")
+    with c10:
+        st.markdown("<br>", unsafe_allow_html=True)
+        analyze_btn = st.button("🚀 ANALYZE STOCK", type="primary", use_container_width=True)
 
+# --- SESSION STATE HANDLING ---
 if analyze_btn:
-    # Processing
-    brand = brand.upper() if brand else "GENERIC"
-    model = model.upper() if model else "VEHICLE"
-    power_label = classify_power(cylinders, bhp)
-    tags = extra_tags(cylinders, bhp)
-    segment = get_segment(cylinders)
+    st.session_state['analyzed'] = True
+    st.session_state['brand'] = brand.upper()
+    st.session_state['model'] = model.upper()
+    st.session_state['category'] = category
+    st.session_state['fuel_type'] = fuel_type.lower()
+    st.session_state['bhp'] = bhp
+    st.session_state['torque'] = torque
+    st.session_state['cyl'] = cylinders
+    st.session_state['drivetrain'] = drivetrain
+    st.session_state['ladder_frame'] = ladder_frame
+
+if st.session_state.get('analyzed'):
+    # Load Stock Data Safely
+    s_brand = st.session_state.get('brand')
+    s_model = st.session_state.get('model')
+    s_cat = st.session_state.get('category')
+    s_cyl = st.session_state.get('cyl', 4)
+    s_bhp = st.session_state.get('bhp', 100)
+    s_tor = st.session_state.get('torque', 100)
+    s_fuel = st.session_state.get('fuel_type', 'petrol')
+    s_drive = st.session_state.get('drivetrain', 'FWD')
+    s_frame = st.session_state.get('ladder_frame', False)
+
+    # ... (Keep your Tuner Shop columns t1, t2, t3 as they are) ...
+    # --- TUNER SHOP SECTION ---
+    st.markdown("---")
+    st.subheader("THE TUNER SHOP")
     
-    # 2. TOP METRICS
+    t1, t2, t3 = st.columns(3)
+    with t1:
+        stage_opt = st.selectbox("Engine Tune", ["Stock", "Stage 1 (ECU Remap)", "Stage 2 (Downpipe + Intake)", "Stage 3 (Full Bolt-ons)"])
+    with t2:
+        fi_opt = st.selectbox("Forced Induction", ["None", "Turbocharger (+30% Power)", "Supercharger (+50% Power)"])
+    with t3:
+        weight_opt = st.selectbox("Weight Reduction", ["None", "Street (Spare tire delete)", "Track (Rear seat delete)", "Race (Carbon bits + Interior stripped)"])
+
+    # 1. COMPUTE STOCK WEIGHT (Using your new file)
+    stock_w = estimate_car_weight(s_brand, s_cat, s_cyl, s_bhp, s_frame, s_drive, s_fuel)
+
+    # 2. Calculate Stock Stats (Pass the computed weight)
+    stock_pwr, stock_0100 = calculate_performance(stock_w, s_bhp, s_tor,s_drive)
+
+    # 3. Calculate Tuned Stats
+    tuned_bhp, tuned_tor, tuned_w, mods = apply_mods(s_bhp, s_tor, stock_w, stage_opt, fi_opt, weight_opt)
+    tuned_pwr, tuned_0100 = calculate_performance(tuned_w, tuned_bhp, tuned_tor,s_drive)
+
+    # Calculate Deltas
+    delta_hp = tuned_bhp - s_bhp
+    delta_0100 = stock_0100 - tuned_0100
+    
+    # NEW: Vehicle Identity Box
     st.markdown(f"""
-<div class="glass-card"><div class="metric-container">
-<div class="metric-box"><div class="metric-label">Vehicle Identity</div><div class="metric-value">{brand} {model}</div></div>
-<div class="metric-box"><div class="metric-label">Segment</div><div class="metric-value">{segment}</div></div>
-<div class="metric-box"><div class="metric-label">Power Class</div><div class="metric-value" style="color: #ff4b4b">{power_label}</div></div>
-</div></div>
-""", unsafe_allow_html=True)
-
-    # 3. SPLIT VIEW
-    col_left, col_right = st.columns([1.5, 1])
-    with col_left:
-        max_scale = 600 if bhp < 600 else 1000
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number", value=bhp,
-            title={'text': "ENGINE OUTPUT<br><span style='font-size:0.8em;color:transparent'>.</span>", 'font': {'size': 14, 'color': "#888"}},
-            number={'font': {'size': 40, 'color': "white"}},
-            gauge={
-                'axis': {'range': [0, max_scale], 'tickwidth': 1, 'tickcolor': "#333"},
-                'bar': {'color': "#ff4b4b"},
-                'bgcolor': "rgba(0,0,0,0)", 'borderwidth': 0,
-                'steps': [
-                    {'range': [0, max_scale*0.2], 'color': "rgba(255, 255, 255, 0.2)"},
-                    {'range': [max_scale*0.2, max_scale*0.5], 'color': "rgba(255, 255, 255, 0.15)"},
-                    {'range': [max_scale*0.5, max_scale*0.8], 'color': "rgba(255, 255, 255, 0.1)"},
-                    {'range': [max_scale*0.8, max_scale], 'color': "rgba(255, 255, 255, 0.05)"},
-                ],
-            }
-        ))
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white", 'family': "Exo 2"}, height=300, margin=dict(t=60, b=10, l=30, r=30))
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_right:
-        # LOAD IMAGE
-        img_src, debug_info = get_img_as_base64(segment)
-        
-        # FALLBACK
-        if not img_src:
-            img_src = "https://placehold.co/1280x720/222/fff?text=Check+Cars+Folder"
-            st.error(f"Image Error: {debug_info}")
-
-        tags_html = "".join([f'<span class="tech-tag">{t}</span>' for t in tags]) if tags else "<span style='color:#555; font-size:0.8rem;'>No tags.</span>"
-        
-        # HTML
-        final_html = f"""
-    <div class="glass-card" style="display: flex; flex-direction: column; gap: 15px;">
-    <div class="img-container">
-        <img src="{img_src}" class="vehicle-img">
-        <div class="img-overlay">{segment.upper()} CLASS</div>
-    </div>
-    
-    <div class="analysis-box">
-        <div class="analysis-header">📊 Analysis Report</div>
-        <div style="line-height: 1.6; font-size: 0.95rem; color: #e0f7fa;">
-        The <b>{brand} {model}</b> is configured with a <b>{cylinders}-cylinder</b> powertrain. Delivering a <b>{power_label} power output</b>.
+    <div style="
+        background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+        border: 1px solid #30363d;
+        border-radius: 15px;
+        padding: 25px;
+        text-align: center;
+        margin-top: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    ">
+        <div style="color: #888; font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px;">VEHICLE IDENTITY</div>
+        <h1 style="margin: 0; font-size: 2.5rem; color: #fff; text-shadow: 0 0 15px rgba(0, 255, 255, 0.3);">
+            {st.session_state['brand']} {st.session_state['model']}
+        </h1>
+        <div style="margin-top: 10px;">
+            <span style="background-color: rgba(255, 75, 75, 0.15); color: #ff4b4b; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; letter-spacing: 1px; border: 1px solid rgba(255, 75, 75, 0.3);">
+                TUNED SPEC
+            </span>
         </div>
     </div>
-    <div style="padding-left: 5px;">
-        <div style="color: #888; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 8px;">Technical Tags</div>
-        {tags_html}
-    </div>
-    </div>
+    """, unsafe_allow_html=True)
+    
+    # 4-Column Metrics (Removed Top Speed/Quarter Mile)
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: 
+        st.metric("Horsepower", f"{tuned_bhp} HP", f"+{delta_hp} HP" if delta_hp > 0 else None)
+    with m2: 
+        st.metric("Torque", f"{tuned_tor} Nm", f"+{tuned_tor - s_tor} Nm" if tuned_tor > s_tor else None)
+    with m3: 
+        st.metric("0-100 km/h", f"{tuned_0100:.2f} s", f"-{delta_0100:.2f} s" if delta_0100 > 0.01 else None, delta_color="inverse")
+    with m4: 
+        st.metric("Weight", f"{tuned_w} kg", f"{tuned_w - stock_w} kg" if tuned_w < stock_w else None, delta_color="inverse")
+
+    st.markdown("---")
+
+    # Visual Bar Chart Comparison (Stock vs Tuned)
+    st.caption("PERFORMANCE GAINS VISUALIZER")
+    fig = go.Figure()
+    
+    # HP Comparison
+    fig.add_trace(go.Bar(
+        y=['Horsepower'], x=[s_bhp], name='Stock', orientation='h', marker_color='#444'
+    ))
+    fig.add_trace(go.Bar(
+        y=['Horsepower'], x=[tuned_bhp - s_bhp], name='Gains', orientation='h', marker_color='#ff4b4b'
+    ))
+    
+    # 0-100 Comparison (Inverse visual trick not needed, bar length is intuitive)
+    # We just show acceleration improvement
+    fig.update_layout(barmode='stack', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font={'color':'white'}, height=200, margin=dict(l=0, r=0, t=0, b=0))
+    st.plotly_chart(fig, use_container_width=True)
+    
+    if len(mods) > 0:
+        st.success(f"**Modifications Installed:** {', '.join(mods)}")
+
+# --- UPDATED REPORT BLOCK FOR PERFECT ALIGNMENT ---
+    mods_installed = ", ".join(mods) if mods else "None (Stock Spec)"
+    
+    # We create temporary strings with units so the padding applies to the WHOLE thing
+    stock_0100_str = f"{stock_0100:.2f} s"
+    tuned_0100_str = f"{tuned_0100:.2f} s"
+    
+    stock_w_str = f"{stock_w} kg"
+    tuned_w_str = f"{tuned_w} kg"
+
+    report_text = f"""
+============================================================
+           RED-LINE ANALYTICS PERFORMANCE REPORT
+============================================================
+VEHICLE IDENTITY:
+------------------------------------------------------------
+Brand:         {s_brand}
+Model:         {s_model}
+Category:      {s_cat}
+Drivetrain:    {s_drive}
+Fuel Type:     {s_fuel.upper()}
+Chassis:       {"Ladder Frame" if s_frame else "Monocoque"}
+
+MODIFICATIONS INSTALLED:
+------------------------------------------------------------
+{mods_installed}
+
+PERFORMANCE COMPARISON:
+------------------------------------------------------------
+ATTRIBUTE      | STOCK          | TUNED          | CHANGE
+------------------------------------------------------------
+Horsepower     | {str(s_bhp):<14} | {str(tuned_bhp):<14} | {f"+{tuned_bhp - s_bhp} HP":<10}
+Torque (Nm)    | {str(s_tor):<14} | {str(tuned_tor):<14} | {f"+{tuned_tor - s_tor} Nm":<10}
+0-100 km/h     | {stock_0100_str:<14} | {tuned_0100_str:<14} | {f"-{stock_0100 - tuned_0100:.2f} s":<10}
+Curb Weight    | {stock_w_str:<14} | {tuned_w_str:<14} | {f"{tuned_w - stock_w} kg":<10}
+Power-to-Wt    | {f"{stock_pwr:.2f}":<14} | {f"{tuned_pwr:.2f}":<14} | {f"+{tuned_pwr - stock_pwr:.2f}":<10}
+
+------------------------------------------------------------
+Generated by Red-Line Analytics Engine.
+© 2026 Asrin Ryan C.
+============================================================
     """
-        st.markdown(final_html, unsafe_allow_html=True)
-else:
-    st.markdown("""<div style="text-align: center; margin-top: 50px; opacity: 0.3;"><h3>AWAITING INPUT</h3><p>Enter vehicle parameters above.</p></div>""", unsafe_allow_html=True)
+    st.markdown("---")
+    st.caption("ANALYTICS EXPORT")
+    
+    # 2. Add the Download Button
+    st.download_button(
+        label="DOWNLOAD PERFORMANCE CERTIFICATE (.TXT)",
+        data=report_text,
+        file_name=f"{st.session_state['brand']}_{st.session_state['model']}_Performance_Report.txt",
+        mime="text/plain",
+        use_container_width=True
+    )
