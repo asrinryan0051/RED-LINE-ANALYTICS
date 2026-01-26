@@ -116,3 +116,32 @@ h3 {
 .js-plotly-plot .plotly .main-svg {
     background: transparent !important;
 }
+/*Streamlit input labels bright red */
+label, 
+.stSelectbox label,
+.stNumberInput label,
+.stTextInput label,
+.stSlider label,
+.stRadio label,
+.stCheckbox label,
+.stMultiSelect label {
+    color: #ff6b6b !important;
+    font-weight: 800 !important;
+}
+/*Download Button Red */
+div.stDownloadButton > button {
+    background-color: #ff3b30 !important;
+    color: white !important;
+    border: 1px solid #ff3b30 !important;
+    font-weight: 700 !important;
+    border-radius: 12px !important;
+    padding: 0.6rem 1.2rem !important;
+}
+
+/* Hover effect */
+div.stDownloadButton > button:hover {
+    background-color: #e10600 !important;
+    border: 1px solid #e10600 !important;
+    color: white !important;
+}
+

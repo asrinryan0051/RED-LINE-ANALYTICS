@@ -171,7 +171,7 @@ def generate_pdf_report(brand, model, category, drive, fuel, frame, mods, s_bhp,
         ["Horsepower", f"{s_bhp} HP", f"{t_bhp} HP", f"+{t_bhp - s_bhp} HP"],
         ["Torque", f"{s_tor} Nm", f"{t_tor} Nm", f"+{t_tor - s_tor} Nm"],
         ["0-100 km/h", f"{s_0100:.2f} s", f"{t_0100:.2f} s", f"-{s_0100 - t_0100:.2f} s"],
-        ["Curb Weight", f"{s_w} kg", f"{t_w} kg", f"{t_w - s_w} kg"],
+        ["Curb Weight", f"{s_w} kg", f"{t_w} kg", f"{t_w - s_w:+} kg"],
         ["Power-to-Wt", f"{s_pwr:.2f}", f"{t_pwr:.2f}", f"+{t_pwr - s_pwr:.2f}"]
     ]
     
@@ -240,7 +240,6 @@ with st.sidebar:
     """)
 
     st.markdown("---")
-    #st.caption("Developed by Asrin Ryan C. | v3.5 Physics Engine")
     st.caption("© 2026 Asrin Ryan C | Red-Line Analytics")
 # --- MAIN UI ---
 st.markdown("<h1 style='text-align: center; color:#ff4b4b;'> RED-LINE <span style='color:white'>ANALYTICS</span></h1>", unsafe_allow_html=True)
@@ -248,9 +247,9 @@ st.markdown("<h1 style='text-align: center; color:#ff4b4b;'> RED-LINE <span styl
 # INPUTS
 with st.container():
     c1, c2, c3,c4,c5 = st.columns([1, 1, 1, 1, 1])
-    with c1: brand = st.text_input("Brand", "Porsche")
-    with c2: model = st.text_input("Model", "911 GT3")
-    with c3: cylinders = st.selectbox("Cylinders", [3, 4, 5, 6, 8, 10, 12], index=3)
+    with c1: brand = st.text_input("Brand", "BMW")
+    with c2: model = st.text_input("Model", "M340i")
+    with c3: cylinders = st.selectbox("Cylinders", [3, 4, 6, 8, 10, 12], index=1)
     with c4: category = st.selectbox("Category",["Hatchback", 
         "Compact Sedan","Mid-Size Sedan", 
         "Executive Sedan","Luxury Sedan","Micro SUV","Sub-Compact SUV", 
@@ -293,7 +292,6 @@ if st.session_state.get('analyzed'):
     s_drive = st.session_state.get('drivetrain', 'FWD')
     s_frame = st.session_state.get('ladder_frame', False)
 
-    # ... (Keep your Tuner Shop columns t1, t2, t3 as they are) ...
     # --- TUNER SHOP SECTION ---
     st.markdown("---")
     st.subheader("THE TUNER SHOP")
@@ -353,7 +351,7 @@ if st.session_state.get('analyzed'):
     with m3: 
         st.metric("0-100 km/h", f"{tuned_0100:.2f} s", f"-{delta_0100:.2f} s" if delta_0100 > 0.01 else None, delta_color="inverse")
     with m4: 
-        st.metric("Weight", f"{tuned_w} kg", f"{tuned_w - stock_w} kg" if tuned_w < stock_w else None, delta_color="inverse")
+        st.metric("Weight", f"{tuned_w} kg", None if tuned_w - stock_w == 0 else f"{tuned_w - stock_w:+} kg", delta_color="inverse")
 
     st.markdown("---")
 
@@ -377,7 +375,6 @@ if st.session_state.get('analyzed'):
     if len(mods) > 0:
         st.success(f"**Modifications Installed:** {', '.join(mods)}")
 
-# --- INSIDE YOUR st.session_state.get('analyzed') BLOCK ---
     # Create the PDF Buffer
     pdf_fp = generate_pdf_report(
         s_brand, s_model, s_cat, s_drive, s_fuel, s_frame, mods,

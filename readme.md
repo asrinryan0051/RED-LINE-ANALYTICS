@@ -32,7 +32,7 @@ Virtually simulate **Stage 1–3 tunes**, forced induction upgrades, and weight 
 ## 🌐 Live Demo
 
 Experience the simulator live on Streamlit Cloud:  
-👉 **[PENDING LIVE DEMO LINK]**
+👉 **https://red-line-analytics.streamlit.app/**
 
 ---
 
@@ -75,19 +75,27 @@ This ensures results feel realistic on **non-prepped real roads**.
 
 Red-Line Analytics features a built-in **Report Generation System**.
 
-### ✅ One-Click Export
-Instantly generate a formatted **Performance Certificate (PDF)**.
+---
 
-### ✅ Detailed Metrics
-The report includes:
+## 📄 Performance Certificate (PDF Export)
 
-- vehicle identity  
-- full list of installed modifications  
-- Stock vs Tuned comparison:
-  - HP  
-  - Torque  
-  - Top Speed  
-  - Power-to-Weight  
+Red-Line Analytics includes a built-in **Professional Report Generator** that produces a **branded Red-White PDF Performance Certificate**.
+
+✅ **One-click export** to PDF  
+✅ Includes full **Stock vs Tuned** comparison  
+✅ Shows installed **tuning/modification list**  
+✅ Designed in a clean **Red-Line theme** (Red + White) for a real tuning-shop / dyno feel
+
+### Report Includes:
+- Vehicle identity (Brand / Model / Variant)
+- Estimated curb weight (variant-based calculation)
+- Installed tuning package (Stage 1 / Stage 2 / Stage 3 / Turbo swap)
+- Stock vs Tuned metrics:
+  - Horsepower (HP)
+  - Torque (Nm)
+  - 0–100 km/h timing
+  - Power-to-weight ratio
+- Performance improvement summary
 
 ---
 
@@ -105,7 +113,7 @@ Verified against **200+ variants** in the Indian & Global market:
 ## 📌 Version
 
 **Red-Line Analytics**  
-✅Physics Engine Active | High-Fidelity Performance Simulation Suite
+✅v3.5 Physics Engine Active | High-Fidelity Performance Simulation Suite
 
 ---
 
