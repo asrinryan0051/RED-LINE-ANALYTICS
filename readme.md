@@ -1,4 +1,4 @@
-# 🏎️ Red-Line Analytics: Professional Virtual Dyno (v3.5)
+# 🏎️ Red-Line Analytics: Professional Virtual Dyno
 
 **The ultimate performance simulation suite** for transforming raw automotive specifications into real-world asphalt data.
 
@@ -32,7 +32,7 @@ Virtually simulate **Stage 1–3 tunes**, forced induction upgrades, and weight 
 ## 🌐 Live Demo
 
 Experience the simulator live on Streamlit Cloud:  
-👉 **[INSERT YOUR LIVE DEMO LINK HERE]**
+👉 **[PENDING LIVE DEMO LINK]**
 
 ---
 
@@ -76,7 +76,7 @@ This ensures results feel realistic on **non-prepped real roads**.
 Red-Line Analytics features a built-in **Report Generation System**.
 
 ### ✅ One-Click Export
-Instantly generate a formatted **Performance Certificate (.txt)**.
+Instantly generate a formatted **Performance Certificate (PDF)**.
 
 ### ✅ Detailed Metrics
 The report includes:
