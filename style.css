@@ -23,7 +23,7 @@ h2 {
 }
 
 h3 {
-    color: #00ffff !important; /* Cyan color for "The Tuner Shop" header */
+    color: #ff3b30; /* red color for "The Tuner Shop" header */
     text-transform: uppercase;
     letter-spacing: 1px;
     font-size: 1.5rem !important;

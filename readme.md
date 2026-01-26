@@ -71,12 +71,6 @@ This ensures results feel realistic on **non-prepped real roads**.
 
 ---
 
-## 📥 Professional Reporting
-
-Red-Line Analytics features a built-in **Report Generation System**.
-
----
-
 ## 📄 Performance Certificate (PDF Export)
 
 Red-Line Analytics includes a built-in **Professional Report Generator** that produces a **branded Red-White PDF Performance Certificate**.
