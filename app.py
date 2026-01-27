@@ -206,38 +206,43 @@ with st.sidebar:
     st.markdown("### *Bridging the gap between raw specs and real-world asphalt.*")
     
     st.markdown("---")
-    st.markdown("#### 🏁 THE MISSION")
-    st.write("""
-        Red-Line Analytics is a professional-grade Virtual Dyno and Performance Simulator. 
-        Unlike basic calculators, our engine uses **Segment-Aware Weight Estimation** and **Traction-Aware Physics** to predict how a car will actually perform on the street.
-    """)
 
-    st.markdown("#### ⚡ WHY RED-LINE?")
-    st.write("""
-        - **Precision Tuning:** Predict gains from Stage 1, 2, or 3 mods before spending a single rupee at the workshop.
-        - **Physics-First:** We account for traction loss and hardware weight bulk—not just raw HP.
-        - **Weight Management:** See the massive impact of weight reduction (like stripping seats) on your 0-100 timing.
-        - **Verification:** Compare your stock estimate against our master market analysis for industry-leading accuracy.
-    """)
-    
-    st.markdown("#### 🛠️ SYSTEM CORE")
-    st.markdown("""
-    - **Weight Core:** Adjusted for Asian, European, and Luxury manufacturing standards.
-    - **Accel Core:** Calibrated with a Real-World friction and gear-shift buffer.
-    - **Tuner Logic:** Realistic hardware bulk vs. software gains simulation.
-    """)
+    st.sidebar.markdown("""        
+## OUR MISSION
+                        
+Red-Line Analytics is a professional-grade Virtual Dyno and Performance Simulator. 
+Unlike basic calculators, our engine uses **Segment-Aware Weight Estimation** and **Traction-Aware Physics** to predict how a car will actually perform on the street.
+                        
+---
+                                                                        
+##  What We Do?
+Red-Line Analytics is a **physics-based Virtual Dyno Simulator** that:
+- Estimates **curb weight automatically** (variant-aware)
+- Simulates tuning impact (Stage 1/2/3 + Turbo/Supercharger + Weight Reduction)
+- Predicts:
+  - **BHP & Torque**
+  - **0–100 km/h**
+  - **Power-to-weight**
+- Exports a **Red-White PDF Dyno Certificate**
 
-    st.markdown("---")
-    st.markdown("#### 🚦 STARTUP SEQUENCE")
-    st.info("""
-    **1. CONFIGURE:** Enter factory Horsepower, Torque, and Drivetrain.
+---
+
+## Quick Input Guide 
+
+- **Brand / Model** (ex: Maruti Swift,Toyota Fortuner, BMW 320d)
+- **Category**: Hatch / Sedan / SUV / Luxury
+- **Fuel + Drivetrain**: Petrol/Diesel + FWD/RWD/AWD/4WD
+- **Cylinders**: 3 / 4 / 6 / 8+
+- **Stock BHP & Torque**: use official specs (refer web or car's owner manual)
+- **Ladder Frame**: ✅ ON for SUVs like Fortuner/Thar, ❌ OFF for sedans/hatches
+
+---
+
+⚠️ *Simulation-based results may vary depending on road and traction conditions.*
+""")
     
-    **2. INITIALIZE:** Click 'Analyze Stock' to see baseline performance.
+
     
-    **3. TUNER SHOP:** Apply ECU Maps or Forced Induction to unlock potential.You can also remove spare wheel/rear seats to reduce weight.
-    
-    **4. EXPORT:** Download your Performance Certificate for the final build.
-    """)
 
     st.markdown("---")
     st.caption("© 2026 Asrin Ryan C | Red-Line Analytics")
@@ -262,7 +267,8 @@ with st.container():
     with c6: bhp = st.number_input("Stock HP", 50, 2000, 500)
     with c7: torque = st.number_input("Stock Torque (Nm)", 50, 3000, 470)
     with c8: fuel_type= st.selectbox("Fuel Type",["Petrol","Diesel","Hybrid","CNG"])
-    with c9: ladder_frame = st.checkbox("Ladder Frame Chassis")
+    with c9: ladder_frame = st.checkbox("Ladder Frame Chassis",help="Enable this only for ladder-frame SUVs. Keep it OFF for Other Vehicles."
+)
     with c10:
         st.markdown("<br>", unsafe_allow_html=True)
         analyze_btn = st.button("🚀 ANALYZE STOCK", type="primary", use_container_width=True)
