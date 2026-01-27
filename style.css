@@ -147,9 +147,9 @@ div.stDownloadButton > button:hover {
 /* Red-Line Sidebar Styling */
 
 section[data-testid="stSidebar"] {
-    background: rgba(0, 0, 0, 0.35) !important;
+    background: #0e0e0e !important;   /* Solid dark background (no transparency) */
     border-right: 1px solid rgba(255, 107, 107, 0.25) !important;
-    box-shadow: 6px 0 20px rgba(255, 107, 107, 0.08) !important;
+    box-shadow: 6px 0 16px rgba(255, 107, 107, 0.10) !important;
 }
 
 /* Sidebar headings */
@@ -160,14 +160,13 @@ section[data-testid="stSidebar"] h3 {
     font-weight: 900 !important;
     letter-spacing: 0.6px !important;
     text-transform: uppercase;
-    text-shadow: 0 0 8px rgba(255, 107, 107, 0.35) !important;
 }
 
 /* Sidebar normal text */
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] li,
 section[data-testid="stSidebar"] span {
-    color: rgba(255, 255, 255, 0.90) !important;
+    color: rgba(255, 255, 255, 0.92) !important;
     font-weight: 600;
     line-height: 1.45;
 }
@@ -180,17 +179,12 @@ section[data-testid="stSidebar"] hr {
     margin: 12px 0 !important;
 }
 
-/* Sidebar emphasis (italic mission line) */
+/* Sidebar emphasis / mission text */
 section[data-testid="stSidebar"] em {
-    color: rgba(255, 107, 107, 0.95) !important;
+    color: #ff6b6b !important;
     font-style: italic;
     font-weight: 700;
 }
-/* Checkbox label color (Light Red) */
-div[data-testid="stCheckbox"] label,
-div[data-testid="stCheckbox"] span,
-div[data-testid="stCheckbox"] p {
-    color: #ff6b6b !important;
-    font-weight: 800 !important;
-}
+
+
 
