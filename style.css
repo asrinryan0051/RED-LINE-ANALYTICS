@@ -144,6 +144,12 @@ div.stDownloadButton > button:hover {
     border: 1px solid #e10600 !important;
     color: white !important;
 }
+/* Checkbox title / label in light red */
+div[data-testid="stCheckbox"] label p {
+    color: #ff6b6b !important;
+    font-weight: 800 !important;
+}
+
 /* Red-Line Sidebar Styling */
 
 section[data-testid="stSidebar"] {
